@@ -2,15 +2,16 @@ import { Platform, ToastAndroid, BackHandler, Linking, Dimensions, Alert, Appear
 // import ExtraDimensions from 'react-native-extra-dimensions-android'
 import Clipboard from '@react-native-clipboard/clipboard'
 import { storageDataPrefix } from '@/config/constant'
-import { gzipFile, unGzipFile } from '@/utils/nativeModules/gzip'
-import { temporaryDirectoryPath, unlink } from '@/utils/fs'
-import { getSystemLocales, isNotificationsEnabled, openNotificationPermissionActivity, readFile, shareText, writeFile } from '@/utils/nativeModules/utils'
+import { gzipFile, readFile, temporaryDirectoryPath, unGzipFile, unlink, writeFile } from '@/utils/fs'
+import { getSystemLocales, isIgnoringBatteryOptimization, isNotificationsEnabled, requestNotificationPermission, requestIgnoreBatteryOptimization, shareText } from '@/utils/nativeModules/utils'
 import musicSdk from '@/utils/musicSdk'
 import { getData, removeData, saveData } from '@/plugins/storage'
 import BackgroundTimer from 'react-native-background-timer'
 import { scaleSizeH, scaleSizeW, setSpText } from './pixelRatio'
 import { toOldMusicInfo } from './index'
 import { stringMd5 } from 'react-native-quick-md5'
+import { windowSizeTools } from '@/utils/windowSizeTools'
+
 
 // https://stackoverflow.com/a/47349998
 export const getDeviceLanguage = async() => {
@@ -28,6 +29,8 @@ export const isAndroid = Platform.OS === 'android'
 export const osVer = Platform.constants.Release as string
 
 export const isActive = () => AppState.currentState == 'active'
+
+export const TEMP_FILE_PATH = temporaryDirectoryPath + '/tempFile'
 
 // fix https://github.com/facebook/react-native/issues/4934
 // export const getWindowSise = (windowDimensions?: ReturnType<(typeof Dimensions)['get']>) => {
@@ -139,7 +142,9 @@ export const assertApiSupport = (source: LX.Source): boolean => {
 //   if (keys.length) return handleRemoveDataMultiple(keys)
 // }
 
-export const exitApp = BackHandler.exitApp
+export const exitApp = () => {
+  BackHandler.exitApp()
+}
 
 export const handleSaveFile = async(path: string, data: any) => {
   // if (!path.endsWith('.json')) path += '.json'
@@ -160,17 +165,29 @@ export const handleReadFile = async<T = unknown>(path: string): Promise<T> => {
     data = await readFile(tempFilePath)
     await unlink(tempFilePath)
   }
-  return JSON.parse(data)
+  data = JSON.parse(data)
+
+  // 修复PC v1.14.0出现的导出数据被序列化两次的问题
+  if (typeof data != 'object') {
+    try {
+      data = JSON.parse(data as string)
+    } catch (err) {
+      return data
+    }
+  }
+
+  return data
 }
 
 export const confirmDialog = async({
+  title = '',
   message = '',
   cancelButtonText = global.i18n.t('dialog_cancel'),
   confirmButtonText = global.i18n.t('dialog_confirm'),
   bgClose = true,
 }) => {
-  return new Promise(resolve => {
-    Alert.alert('', message, [
+  return new Promise<boolean>(resolve => {
+    Alert.alert(title, message, [
       {
         text: cancelButtonText,
         onPress() {
@@ -192,6 +209,29 @@ export const confirmDialog = async({
   })
 }
 
+export const tipDialog = async({
+  title = '',
+  message = '',
+  btnText = global.i18n.t('dialog_confirm'),
+  bgClose = true,
+}) => {
+  return new Promise<void>(resolve => {
+    Alert.alert(title, message, [
+      {
+        text: btnText,
+        onPress() {
+          resolve()
+        },
+      },
+    ], {
+      cancelable: bgClose,
+      onDismiss() {
+        resolve()
+      },
+    })
+  })
+}
+
 export const clipboardWriteText = (str: string) => {
   Clipboard.setString(str)
 }
@@ -202,34 +242,88 @@ export const checkNotificationPermission = async() => {
   if (isHide != null) return
   const enabled = await isNotificationsEnabled()
   if (enabled) return
-  Alert.alert(
-    global.i18n.t('notifications_check_title'),
-    global.i18n.t('notifications_check_tip'),
-    [
-      {
-        text: global.i18n.t('never_show'),
-        onPress: () => {
-          void saveData(storageDataPrefix.notificationTipEnable, '1')
-          toast(global.i18n.t('disagree_tip'))
+  return new Promise<void>((resolve) => {
+    Alert.alert(
+      global.i18n.t('notifications_check_title'),
+      global.i18n.t('notifications_check_tip'),
+      [
+        {
+          text: global.i18n.t('never_show'),
+          onPress: () => {
+            void saveData(storageDataPrefix.notificationTipEnable, '1')
+            toast(global.i18n.t('disagree_tip'))
+            resolve()
+          },
         },
-      },
-      {
-        text: global.i18n.t('disagree'),
-        onPress: () => {
-          toast(global.i18n.t('disagree_tip'))
+        {
+          text: global.i18n.t('disagree'),
+          onPress: () => {
+            toast(global.i18n.t('disagree_tip'))
+            resolve()
+          },
         },
-      },
-      {
-        text: global.i18n.t('agree_go'),
-        onPress: () => {
-          void openNotificationPermissionActivity()
+        {
+          text: global.i18n.t('agree_go'),
+          onPress: () => {
+            requestAnimationFrame(() => {
+              void requestNotificationPermission().then((result) => {
+                if (!result) toast(global.i18n.t('disagree_tip'))
+                resolve()
+              })
+            })
+          },
         },
-      },
-    ],
-  )
+      ],
+    )
+  })
+}
+
+
+export const checkIgnoringBatteryOptimization = async() => {
+  const isHide = await getData(storageDataPrefix.ignoringBatteryOptimizationTipEnable)
+  if (isHide != null) return
+  const enabled = await isIgnoringBatteryOptimization()
+  if (enabled) return
+  return new Promise<void>((resolve) => {
+    Alert.alert(
+      global.i18n.t('ignoring_battery_optimization_check_title'),
+      global.i18n.t('ignoring_battery_optimization_check_tip'),
+      [
+        {
+          text: global.i18n.t('never_show'),
+          onPress: () => {
+            void saveData(storageDataPrefix.ignoringBatteryOptimizationTipEnable, '1')
+            toast(global.i18n.t('disagree_tip'))
+            resolve()
+          },
+        },
+        {
+          text: global.i18n.t('disagree'),
+          onPress: () => {
+            toast(global.i18n.t('disagree_tip'))
+            resolve()
+          },
+        },
+        {
+          text: global.i18n.t('agree_to'),
+          onPress: () => {
+            requestAnimationFrame(() => {
+              void requestIgnoreBatteryOptimization().then((result) => {
+                if (!result) toast(global.i18n.t('disagree_tip'))
+                resolve()
+              })
+            })
+          },
+        },
+      ],
+    )
+  })
 }
 export const resetNotificationPermissionCheck = async() => {
   return removeData(storageDataPrefix.notificationTipEnable)
+}
+export const resetIgnoringBatteryOptimizationCheck = async() => {
+  return removeData(storageDataPrefix.ignoringBatteryOptimizationTipEnable)
 }
 
 export const shareMusic = (shareType: LX.ShareType, downloadFileName: LX.AppSetting['download.fileName'], musicInfo: LX.Music.MusicInfo) => {
@@ -268,7 +362,7 @@ export const getIsSupportedAutoTheme = () => {
   if (isSupportedAutoTheme == null) {
     const osVerNum = parseInt(osVer)
     isSupportedAutoTheme = isAndroid
-      ? osVerNum >= 10
+      ? osVerNum >= 5
       : osVerNum >= 13
   }
   return isSupportedAutoTheme
@@ -300,15 +394,11 @@ export const showImportTip = (type: string) => {
       message = global.i18n.t('list_import_tip__unknown')
       break
   }
-  Alert.alert(
-    global.i18n.t('list_import_tip__failed'),
+  void tipDialog({
+    title: global.i18n.t('list_import_tip__failed'),
     message,
-    [
-      {
-        text: global.i18n.t('ok'),
-      },
-    ],
-  )
+    btnText: global.i18n.t('ok'),
+  })
 }
 
 
@@ -420,8 +510,14 @@ export const createStyle = <T extends StyleSheet.NamedStyles<T>>(styles: T | Sty
   for (const [n, s] of Object.entries(newStyle)) {
     newStyle[n] = trasformeStyle(s)
   }
+  // @ts-expect-error
   return StyleSheet.create(newStyle as StyleSheet.NamedStyles<T>)
 }
+
+export const isHorizontalMode = (width: number, height: number): boolean => {
+  return width / height > 1.2
+}
+
 
 export interface RowInfo {
   rowNum: number | undefined
@@ -431,8 +527,8 @@ export interface RowInfo {
 export type RowInfoType = 'full' | 'medium'
 
 export const getRowInfo = (type: RowInfoType = 'full'): RowInfo => {
-  const win = Dimensions.get('window')
-  let isMultiRow = win.width > win.height
+  const win = windowSizeTools.getSize()
+  let isMultiRow = isHorizontalMode(win.width, win.height)
   if (type == 'medium' && win.width / win.height < 1.8) isMultiRow = false
   // console.log('getRowInfo')
   return {
@@ -448,19 +544,14 @@ export const cheatTip = async() => {
   const isRead = await getData<boolean>(storageDataPrefix.cheatTip)
   if (isRead) return
 
-  return new Promise<void>((resolve) => {
-    Alert.alert(
-      '谨防被骗提示',
-      `1. 本项目无微信公众号之类的官方账号，也未在小米、华为、vivo等应用商店发布应用，商店内的“LX Music”、“洛雪音乐”相关的应用全部属于假冒应用，谨防被骗。
+  return tipDialog({
+    title: '谨防被骗提示',
+    message: `1. 本项目无微信公众号之类的官方账号，也未在小米、华为、vivo等应用商店发布应用，商店内的“LX Music”、“洛雪音乐”相关的应用全部属于假冒应用，谨防被骗。
 2. 本软件完全无广告且无引流（如需要加群、关注公众号之类才能使用或者升级）的行为，若你使用过程中遇到广告或者引流的信息，则表明你当前运行的软件是第三方修改版。
 3. 目前本项目的原始发布地址只有 GitHub 及 蓝奏网盘 （在设置-关于有说明），其他渠道均为第三方转载发布，可信度请自行鉴别。`,
-      [{
-        text: '我知道了 (Close)',
-        onPress: () => {
-          void saveData(storageDataPrefix.cheatTip, true)
-          resolve()
-        },
-      }],
-    )
+    btnText: '我知道了 (Close)',
+    bgClose: false,
+  }).then(() => {
+    void saveData(storageDataPrefix.cheatTip, true)
   })
 }

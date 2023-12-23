@@ -4,15 +4,15 @@ module.exports = {
     // 'metro-react-native-babel-preset',
     '@types/react-native',
     'metro-react-native-babel-preset',
-    'react-native',
+    '@react-native/metro-config',
     'react',
-  ]
+  ],
 
   // target: 'patch',
   // filter: [
-  //   'react-native',
   //   '@types/react-native',
   //   'react',
   //   'metro-react-native-babel-preset',
+  //   '@react-native/metro-config',
   // ],
 }

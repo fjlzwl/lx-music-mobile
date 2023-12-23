@@ -12,9 +12,10 @@ import commonState, { type InitState as CommonStateType } from '@/store/common/s
 import { storageDataPrefix } from '@/config/constant'
 import { saveData } from '@/plugins/storage'
 import { throttle } from '@/utils/common'
-import { saveFontSize, saveViewPrevState } from '@/utils/data'
+import { getSelectedManagedFolder, saveFontSize, saveViewPrevState, setSelectedManagedFolder } from '@/utils/data'
 import { showPactModal as handleShowPactModal } from '@/navigation'
 import { hideLyric } from '@/utils/nativeModules/lyricDesktop'
+import { getPersistedUriList, selectManagedFolder } from '@/utils/fs'
 
 
 const throttleSaveSetting = throttle(() => {
@@ -68,6 +69,10 @@ export const setFontSize = (size: number) => {
   void saveFontSize(size)
 }
 
+export const setStatusbarHeight = (size: number) => {
+  commonActions.setStatusbarHeight(size)
+}
+
 export const setComponentId = (name: keyof CommonStateType['componentIds'], id: string) => {
   commonActions.setComponentId(name, id)
 }
@@ -78,9 +83,28 @@ export const removeComponentId = (name: string) => {
 export const setNavActiveId = (id: Parameters<typeof commonActions.setNavActiveId>['0']) => {
   if (id == commonState.navActiveId) return
   commonActions.setNavActiveId(id)
-  saveViewPrevState({ id })
+  if (id != 'nav_setting') {
+    commonActions.setLastNavActiveId(id)
+    saveViewPrevState({ id })
+  }
 }
 
 export const showPactModal = () => {
   handleShowPactModal()
+}
+
+export const checkStoragePermissions = async() => {
+  const selectedManagedFolder = await getSelectedManagedFolder()
+  if (selectedManagedFolder) return (await getPersistedUriList()).some(uri => selectedManagedFolder.startsWith(uri))
+  return false
+}
+
+export const requestStoragePermission = async() => {
+  const isGranted = await checkStoragePermissions()
+  if (isGranted) return isGranted
+
+  const uri = await selectManagedFolder()
+  if (!uri.isDirectory) return false
+  await setSelectedManagedFolder(uri.path)
+  return true
 }

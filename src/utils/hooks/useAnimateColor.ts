@@ -21,9 +21,13 @@ export const useAnimateColor = (color: string) => {
       toValue: 1,
       duration: ANIMATION_DURATION,
       useNativeDriver: false,
-    }).start(() => {
-      currentColor.current = nextColor
+    }).start((finished) => {
+      if (!finished) return
+      // currentColor.current = nextColor
       setFinished(true)
+    })
+    requestAnimationFrame(() => {
+      currentColor.current = nextColor
     })
   }, [nextColor])
 

@@ -14,7 +14,7 @@ import CommentBtn from './CommentBtn'
 import Btn from './Btn'
 import SettingPopup, { type SettingPopupType } from '../../components/SettingPopup'
 
-const HEADER_HEIGHT = scaleSizeH(_HEADER_HEIGHT)
+export const HEADER_HEIGHT = scaleSizeH(_HEADER_HEIGHT)
 
 const Title = () => {
   const theme = useTheme()
@@ -33,7 +33,7 @@ export default memo(() => {
   const popupRef = useRef<SettingPopupType>(null)
 
   const back = () => {
-    void pop(commonState.componentIds.playDetail as string)
+    void pop(commonState.componentIds.playDetail!)
   }
   const showSetting = () => {
     popupRef.current?.show()

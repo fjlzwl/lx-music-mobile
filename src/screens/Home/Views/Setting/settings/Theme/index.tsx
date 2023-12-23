@@ -4,6 +4,7 @@ import { memo } from 'react'
 import Theme from './Theme'
 import IsAutoTheme from './IsAutoTheme'
 import IsHideBgDark from './IsHideBgDark'
+import IsDynamicBg from './IsDynamicBg'
 // import { useI18n } from '@/lang/i18n'
 
 export default memo(() => {
@@ -12,6 +13,7 @@ export default memo(() => {
       <Theme />
       <IsAutoTheme />
       <IsHideBgDark />
+      <IsDynamicBg />
     </>
   )
 })

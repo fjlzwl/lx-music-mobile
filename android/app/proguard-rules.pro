@@ -8,3 +8,7 @@
 #   http://developer.android.com/guide/developing/tools/proguard.html
 
 # Add any project specific keep options here:
+
+
+# 排除混淆墨•状态栏歌词相关API
+-keep class StatusBarLyric.API.StatusBarLyric {*;}

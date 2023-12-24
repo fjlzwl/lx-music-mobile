@@ -1,6 +1,5 @@
 // import { requestStoragePermission } from '@/utils/common'
-import { temporaryDirectoryPath, existsFile, appendFile, unlink } from '@/utils/fs'
-import { readFile, writeFile } from './nativeModules/utils'
+import { temporaryDirectoryPath, existsFile, appendFile, unlink, writeFile, readFile } from '@/utils/fs'
 
 const logPath = temporaryDirectoryPath + '/error.log'
 
@@ -13,7 +12,7 @@ const logTools = {
   async initLogFile() {
     try {
       let isExists = await existsFile(logPath)
-      console.log(isExists)
+      // console.log(isExists)
       if (!isExists) await writeFile(logPath, '')
       if (this.tempLog?.length) this.writeLog(this.tempLog.map(m => `${m.time} ${m.type} ${m.text}`).join('\n----lx log----\n'))
       this.tempLog = null

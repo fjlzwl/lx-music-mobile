@@ -26,6 +26,9 @@ const syncHostPrefix = storageDataPrefix.syncHost
 const syncHostHistoryPrefix = storageDataPrefix.syncHostHistory
 const listPrefix = storageDataPrefix.list
 const dislikeListPrefix = storageDataPrefix.dislikeList
+const userApiPrefix = storageDataPrefix.userApi
+const openStoragePathPrefix = storageDataPrefix.openStoragePath
+const selectedManagedFolderPrefix = storageDataPrefix.selectedManagedFolder
 
 // const defaultListKey = listPrefix + 'default'
 // const loveListKey = listPrefix + 'love'
@@ -194,6 +197,25 @@ export const getIgnoreVersionFailTipTime = async() => {
   return ignoreVersionFailTipTime ?? 0
 }
 
+let openStoragePath: string | null = ''
+export const saveOpenStoragePath = async(path: string) => {
+  if (path) {
+    openStoragePath = path
+    await saveData(openStoragePathPrefix, path)
+  } else {
+    if (!openStoragePath) return
+    openStoragePath = null
+    await removeData(openStoragePathPrefix)
+  }
+}
+// 获取上次打开的存储路径
+export const getOpenStoragePath = async() => {
+  if (openStoragePath === '') {
+    // eslint-disable-next-line require-atomic-updates
+    openStoragePath = await getData<string | null>(openStoragePathPrefix)
+  }
+  return openStoragePath
+}
 
 export const getSearchSetting = async() => {
   // eslint-disable-next-line require-atomic-updates
@@ -408,6 +430,18 @@ export const getPlayInfo = async() => {
   return getData<LX.Player.SavedPlayInfo | null>(playInfoStorageKey)
 }
 
+let selectedManagedFolder: string | null = ''
+export const setSelectedManagedFolder = async(uri: string) => {
+  selectedManagedFolder = uri
+  return saveData(selectedManagedFolderPrefix, uri)
+}
+export const getSelectedManagedFolder = async() => {
+  if (selectedManagedFolder != '') return selectedManagedFolder
+  let uri = await getData<string>(selectedManagedFolderPrefix)
+  if (selectedManagedFolder != uri) selectedManagedFolder = uri
+  return selectedManagedFolder
+}
+
 export const getSyncAuthKey = async(serverId: string) => {
   const keys = await getData<Record<string, LX.Sync.KeyInfo>>(syncAuthKeyPrefix)
   if (!keys) return null
@@ -460,3 +494,81 @@ export const removeSyncHostHistory = async(index: number) => {
   await saveData(syncHostHistoryPrefix, syncHostHistory)
 }
 
+let userApis: LX.UserApi.UserApiInfo[] = []
+export const getUserApiList = async(): Promise<LX.UserApi.UserApiInfo[]> => {
+  userApis = await getData<LX.UserApi.UserApiInfo[]>(userApiPrefix) ?? []
+  return [...userApis]
+}
+export const getUserApiScript = async(id: string): Promise<string> => {
+  const script = await getData<string>(`${userApiPrefix}${id}`) ?? ''
+  return script
+}
+
+const INFO_NAMES = {
+  name: 24,
+  description: 36,
+  author: 56,
+  homepage: 1024,
+  version: 36,
+} as const
+type INFO_NAMES_Type = typeof INFO_NAMES
+const matchInfo = (scriptInfo: string) => {
+  const infoArr = scriptInfo.split(/\r?\n/)
+  const rxp = /^\s?\*\s?@(\w+)\s(.+)$/
+  const infos: Partial<Record<keyof typeof INFO_NAMES, string>> = {}
+  for (const info of infoArr) {
+    const result = rxp.exec(info)
+    if (!result) continue
+    const key = result[1] as keyof typeof INFO_NAMES
+    if (INFO_NAMES[key] == null) continue
+    infos[key] = result[2].trim()
+  }
+
+  for (const [key, len] of Object.entries(INFO_NAMES) as Array<{ [K in keyof INFO_NAMES_Type]: [K, INFO_NAMES_Type[K]] }[keyof INFO_NAMES_Type]>) {
+    infos[key] ||= ''
+    if (infos[key] == null) infos[key] = ''
+    else if (infos[key]!.length > len) infos[key] = infos[key]!.substring(0, len) + '...'
+  }
+
+  return infos as Record<keyof typeof INFO_NAMES, string>
+}
+export const addUserApi = async(script: string): Promise<LX.UserApi.UserApiInfo> => {
+  const result = /^\/\*[\S|\s]+?\*\//.exec(script)
+  if (!result) throw new Error('无效的自定义源文件')
+
+  let scriptInfo = matchInfo(result[0])
+
+  scriptInfo.name ||= `user_api_${new Date().toLocaleString()}`
+  const apiInfo = {
+    id: `user_api_${Math.random().toString().substring(2, 5)}_${Date.now()}`,
+    ...scriptInfo,
+    script,
+    allowShowUpdateAlert: true,
+  }
+  userApis.push(apiInfo)
+  await saveDataMultiple([
+    [userApiPrefix, userApis],
+    [`${userApiPrefix}${apiInfo.id}`, script],
+  ])
+  return apiInfo
+}
+export const removeUserApi = async(ids: string[]) => {
+  if (!userApis) return []
+  const _ids: string[] = []
+  for (let index = userApis.length - 1; index > -1; index--) {
+    if (ids.includes(userApis[index].id)) {
+      _ids.push(`${userApiPrefix}${userApis[index].id}`)
+      userApis.splice(index, 1)
+      ids.splice(index, 1)
+    }
+  }
+  await saveData(userApiPrefix, userApis)
+  if (_ids.length) await removeDataMultiple(_ids)
+  return [...userApis]
+}
+export const setUserApiAllowShowUpdateAlert = async(id: string, enable: boolean) => {
+  const targetApi = userApis?.find(api => api.id == id)
+  if (!targetApi) return
+  targetApi.allowShowUpdateAlert = enable
+  await saveData(userApiPrefix, userApis)
+}

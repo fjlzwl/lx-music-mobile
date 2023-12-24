@@ -1,4 +1,4 @@
-import { NativeEventEmitter, NativeModules } from 'react-native'
+import { AppState, NativeEventEmitter, NativeModules } from 'react-native'
 
 const { UtilsModule } = NativeModules
 
@@ -29,26 +29,34 @@ export const getDeviceName = async(): Promise<string> => {
 
 export const isNotificationsEnabled = UtilsModule.isNotificationsEnabled as () => Promise<boolean>
 
-export const openNotificationPermissionActivity = UtilsModule.openNotificationPermissionActivity as () => Promise<void>
+export const requestNotificationPermission = async() => new Promise<boolean>((resolve) => {
+  let subscription = AppState.addEventListener('change', (state) => {
+    if (state != 'active') return
+    subscription.remove()
+    setTimeout(() => {
+      void isNotificationsEnabled().then(resolve)
+    }, 1000)
+  })
+  UtilsModule.openNotificationPermissionActivity().then((result: boolean) => {
+    if (result) return
+    subscription.remove()
+    resolve(false)
+  })
+})
 
 export const shareText = async(shareTitle: string, title: string, text: string): Promise<void> => {
   UtilsModule.shareText(shareTitle, title, text)
 }
 
-export const writeFile = async(filePath: string, data: string): Promise<void> => {
-  return UtilsModule.writeStringToFile(filePath, data)
-}
-export const readFile = async(filePath: string): Promise<string> => {
-  return UtilsModule.getStringFromFile(filePath)
-}
 export const getSystemLocales = async(): Promise<string> => {
   return UtilsModule.getSystemLocales()
 }
 
-export const onScreenStateChange = (callback: (state: 'ON' | 'OFF') => void): () => void => {
+export const onScreenStateChange = (handler: (state: 'ON' | 'OFF') => void): () => void => {
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
   const eventEmitter = new NativeEventEmitter(UtilsModule)
   const eventListener = eventEmitter.addListener('screen-state', event => {
-    callback(event.state)
+    handler(event.state as 'ON' | 'OFF')
   })
 
   return () => {
@@ -60,14 +68,34 @@ export const getWindowSize = async(): Promise<{ width: number, height: number }>
   return UtilsModule.getWindowSize()
 }
 
-export const onWindowSizeChange = (callback: (size: { width: number, height: number }) => void): () => void => {
+export const onWindowSizeChange = (handler: (size: { width: number, height: number }) => void): () => void => {
   UtilsModule.listenWindowSizeChanged()
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
   const eventEmitter = new NativeEventEmitter(UtilsModule)
   const eventListener = eventEmitter.addListener('screen-size-changed', event => {
-    callback(event)
+    handler(event as { width: number, height: number })
   })
 
   return () => {
     eventListener.remove()
   }
 }
+
+export const isIgnoringBatteryOptimization = async(): Promise<boolean> => {
+  return UtilsModule.isIgnoringBatteryOptimization()
+}
+
+export const requestIgnoreBatteryOptimization = async() => new Promise<boolean>((resolve) => {
+  let subscription = AppState.addEventListener('change', (state) => {
+    if (state != 'active') return
+    subscription.remove()
+    setTimeout(() => {
+      void isIgnoringBatteryOptimization().then(resolve)
+    }, 1000)
+  })
+  UtilsModule.requestIgnoreBatteryOptimization().then((result: boolean) => {
+    if (result) return
+    subscription.remove()
+    resolve(false)
+  })
+})

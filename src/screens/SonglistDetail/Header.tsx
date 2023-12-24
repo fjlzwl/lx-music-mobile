@@ -1,17 +1,35 @@
-import { forwardRef, useImperativeHandle, useState } from 'react'
-import { View, Image } from 'react-native'
+import { forwardRef, memo, useImperativeHandle, useState } from 'react'
+import { View } from 'react-native'
 import { BorderWidths } from '@/theme'
 import ButtonBar from './ActionBar'
 import { useNavigationComponentDidAppear } from '@/navigation'
 import { NAV_SHEAR_NATIVE_IDS } from '@/config/constant'
 import { scaleSizeW } from '@/utils/pixelRatio'
 import { useTheme } from '@/store/theme/hook'
-import Text from '@/components/common/Text'
+import Text, { AnimatedText } from '@/components/common/Text'
 import { createStyle } from '@/utils/tools'
-import StatusBar from '@/components/common/StatusBar'
-import songlistState from '@/store/songlist/state'
+import Image from '@/components/common/Image'
+import { useListInfo } from './state'
+import { useAnimateOnecNumber } from '@/utils/hooks/useAnimateNumber'
+import { useStatusbarHeight } from '@/store/common/hook'
 
 const IMAGE_WIDTH = scaleSizeW(70)
+
+const CountText = memo(({ count }: { count: string }) => {
+  const [animFade] = useAnimateOnecNumber(0, 1, 250, false)
+  const [animTranslateY] = useAnimateOnecNumber(10, 0, 250, false)
+  return (
+    <AnimatedText style={{
+      ...styles.playCount,
+      opacity: animFade,
+      transform: [
+        { translateY: animTranslateY },
+      ],
+    }} numberOfLines={ 1 }>{count}</AnimatedText>
+  )
+}, (prevProps, nextProps) => {
+  return true
+})
 
 const Pic = ({ componentId, playCount, imgUrl }: {
   componentId: string
@@ -19,6 +37,7 @@ const Pic = ({ componentId, playCount, imgUrl }: {
   imgUrl?: string
 }) => {
   const [animated, setAnimated] = useState(false)
+  const info = useListInfo()
 
   useNavigationComponentDidAppear(componentId, () => {
     setAnimated(true)
@@ -26,12 +45,10 @@ const Pic = ({ componentId, playCount, imgUrl }: {
 
   return (
     <View style={{ ...styles.listItemImg, width: IMAGE_WIDTH, height: IMAGE_WIDTH }}>
-      <Image nativeID={`${NAV_SHEAR_NATIVE_IDS.songlistDetail_pic}_to_${songlistState.selectListInfo.id}`} source={{ uri: imgUrl }} borderRadius={4} style={{ flex: 1, resizeMode: 'cover', justifyContent: 'flex-end' }} />
-        {
-          playCount && animated
-            ? <Text style={styles.playCount} numberOfLines={ 1 }>{playCount}</Text>
-            : null
-        }
+      <Image nativeID={`${NAV_SHEAR_NATIVE_IDS.songlistDetail_pic}_to_${info.id}`} url={imgUrl} style={{ flex: 1, borderRadius: 4 }} />
+      {
+        playCount && animated ? <CountText count={playCount} /> : null
+      }
     </View>
   )
 }
@@ -51,8 +68,10 @@ export interface DetailInfo {
 }
 
 export default forwardRef<HeaderType, HeaderProps>(({ componentId }: { componentId: string }, ref) => {
+  const statusBarHeight = useStatusbarHeight()
   const theme = useTheme()
-  const [detailInfo, setDetailInfo] = useState<DetailInfo>({ name: '', desc: '', playCount: '' })
+  const info = useListInfo()
+  const [detailInfo, setDetailInfo] = useState<DetailInfo>({ name: '', desc: '', playCount: '', imgUrl: info.img })
 
   useImperativeHandle(ref, () => ({
     setInfo(info) {
@@ -61,7 +80,7 @@ export default forwardRef<HeaderType, HeaderProps>(({ componentId }: { component
   }), [])
 
   return (
-    <View style={{ ...styles.container, paddingTop: StatusBar.currentHeight, borderBottomColor: theme['c-border-background'] }}>
+    <View style={{ ...styles.container, paddingTop: statusBarHeight, borderBottomColor: theme['c-border-background'] }}>
       <View style={{ flexDirection: 'row', flexGrow: 0, flexShrink: 0, padding: 10 }}>
         <Pic componentId={componentId} playCount={detailInfo.playCount} imgUrl={detailInfo.imgUrl} />
         <View style={{ flexDirection: 'column', flexGrow: 1, flexShrink: 1, paddingLeft: 5 }} nativeID={NAV_SHEAR_NATIVE_IDS.songlistDetail_title}>
@@ -92,6 +111,7 @@ const styles = createStyle({
     // backgroundColor: '#eee',
     flexGrow: 0,
     flexShrink: 0,
+    overflow: 'hidden',
     // width: 70,
     // height: 70,
     // ...Platform.select({

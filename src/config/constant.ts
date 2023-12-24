@@ -55,7 +55,10 @@ export const storageDataPrefix = {
   syncHost: '@sync_host',
   syncHostHistory: '@sync_host_history',
 
+  openStoragePath: '@open_storage_path',
+  selectedManagedFolder: '@selected_managed_folder',
   notificationTipEnable: '@notification_tip_enable',
+  ignoringBatteryOptimizationTipEnable: '@ignoring_battery_optimization_tip_enable',
 
   searchHistoryList: '@search_history_list',
   listUpdateInfo: '@list_update_info',
@@ -72,6 +75,8 @@ export const storageDataPrefix = {
   cheatTip: '@cheat_tip',
 
   dislikeList: '@dislike_list',
+
+  userApi: '@user_api__',
 } as const
 
 // v0.x.x 版本的 data keys
@@ -103,7 +108,8 @@ export const NAV_MENUS = [
 
 export type NAV_ID_Type = typeof NAV_MENUS[number]['id']
 
-export const LXM_FILE_EXT_RXP = /\.(json|lxmc)$/
+export const LXM_FILE_EXT_RXP = ['json', 'lxmc', 'bin']
+export const USER_API_SOURCE_FILE_EXT_RXP = ['js']
 
 export const MUSIC_TOGGLE_MODE = {
   listLoop: 'listLoop', // 列表循环

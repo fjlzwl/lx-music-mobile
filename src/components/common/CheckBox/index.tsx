@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { View, TouchableOpacity, Alert } from 'react-native'
+import { View, TouchableOpacity } from 'react-native'
 import CheckBox from './Checkbox'
 
-import { createStyle } from '@/utils/tools'
+import { createStyle, tipDialog } from '@/utils/tools'
 import { scaleSizeH, scaleSizeW } from '@/utils/pixelRatio'
 import { useTheme } from '@/store/theme/hook'
 import Text from '../Text'
@@ -10,11 +10,12 @@ import { Icon } from '../Icon'
 
 export interface CheckBoxProps {
   check: boolean
-  label: string
+  label?: string
   children?: React.ReactNode
   onChange: (check: boolean) => void
   disabled?: boolean
   need?: boolean
+  size?: number
   marginRight?: number
   marginBottom?: number
 
@@ -22,7 +23,7 @@ export interface CheckBoxProps {
   helpDesc?: string
 }
 
-export default ({ check, label, children, onChange, helpTitle, helpDesc, disabled = false, need = false, marginRight = 0, marginBottom = 0 }: CheckBoxProps) => {
+export default ({ check, label, children, onChange, helpTitle, helpDesc, disabled = false, need = false, marginRight = 0, marginBottom = 0, size = 1 }: CheckBoxProps) => {
   const theme = useTheme()
   const [isDisabled, setDisabled] = useState(false)
   const tintColors = {
@@ -53,22 +54,18 @@ export default ({ check, label, children, onChange, helpTitle, helpDesc, disable
 
   const helpComponent = useMemo(() => {
     const handleShowHelp = () => {
-      Alert.alert(helpTitle ?? '', helpDesc,
-        // [{
-        //   text: '我知道了 (Close)',
-        //   // onPress: () => {
-        //   //   void saveData(storageDataPrefix.cheatTip, true)
-        //   //   resolve()
-        //   // },
-        // }],
-      )
+      void tipDialog({
+        title: helpTitle ?? '',
+        message: helpDesc,
+        btnText: global.i18n.t('understand'),
+      })
     }
     return (helpTitle ?? helpDesc) ? (
       <TouchableOpacity style={styles.helpBtn} onPress={handleShowHelp}>
-        <Icon name="help" />
+        <Icon size={15 * size} name="help" />
       </TouchableOpacity>
     ) : null
-  }, [helpTitle, helpDesc])
+  }, [helpTitle, helpDesc, size])
 
 
   const contentStyle = { ...styles.content, marginBottom: scaleSizeH(marginBottom) }
@@ -78,16 +75,16 @@ export default ({ check, label, children, onChange, helpTitle, helpDesc, disable
     disabled
       ? (
           <View style={contentStyle}>
-            <CheckBox status={check ? 'checked' : 'unchecked'} disabled={true} tintColors={disabledTintColors} />
-            <View style={labelStyle}>{label ? <Text style={styles.name} color={theme['c-500']}>{label}</Text> : children}</View>
+            <CheckBox status={check ? 'checked' : 'unchecked'} disabled={true} tintColors={disabledTintColors} size={size} />
+            <View style={labelStyle}>{label ? <Text style={styles.name} color={theme['c-500']} size={15 * size}>{label}</Text> : children}</View>
             {helpComponent}
           </View>
         )
       : (
           <View style={contentStyle}>
-            <CheckBox status={check ? 'checked' : 'unchecked'} disabled={isDisabled} onPress={handleLabelPress} tintColors={tintColors} />
+            <CheckBox status={check ? 'checked' : 'unchecked'} disabled={isDisabled} onPress={handleLabelPress} tintColors={tintColors} size={size} />
             <TouchableOpacity style={labelStyle} activeOpacity={0.3} onPress={handleLabelPress}>
-              {label ? <Text style={styles.name}>{label}</Text> : children}
+              {label ? <Text style={styles.name} size={15 * size}>{label}</Text> : children}
             </TouchableOpacity>
             {helpComponent}
           </View>

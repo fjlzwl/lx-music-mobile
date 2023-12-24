@@ -4,12 +4,12 @@ import { playMusic as handlePlayMusic } from './playList'
 // import { PlayerMusicInfo } from '@/store/modules/player/playInfo'
 
 
-export { useProgress } from './hook'
+export { useBufferProgress } from './hook'
 
 const emptyIdRxp = /\/\/default$/
 const tempIdRxp = /\/\/default$|\/\/default\/\/restorePlay$/
 export const isEmpty = (trackId = global.lx.playerTrackId) => {
-  console.log(trackId)
+  // console.log(trackId)
   return !trackId || emptyIdRxp.test(trackId)
 }
 export const isTempId = (trackId = global.lx.playerTrackId) => !trackId || tempIdRxp.test(trackId)
@@ -133,7 +133,7 @@ const playMusic = ((fn: (musicInfo: LX.Player.PlayMusic, url: string, time: numb
         _url = ''
         _time = 0
         isDelayRun = false
-        fn(musicInfo as LX.Player.PlayMusic, url, time)
+        fn(musicInfo!, url, time)
       }, delay)
     } else {
       isDelayRun = true

@@ -2,7 +2,7 @@ const defaultSetting: LX.AppSetting = {
   version: '2.0',
   'common.isAutoTheme': false,
   'common.langId': null,
-  'common.apiSource': 'temp',
+  'common.apiSource': '',
   'common.sourceNameType': 'alias',
   'common.shareType': 'system',
   'common.isAgreePact': false,
@@ -70,6 +70,7 @@ const defaultSetting: LX.AppSetting = {
   'theme.lightId': 'green',
   'theme.darkId': 'black',
   'theme.hideBgDark': false,
+  'theme.dynamicBg': false,
 }
 
 

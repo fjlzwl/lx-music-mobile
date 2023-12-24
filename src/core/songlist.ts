@@ -1,4 +1,4 @@
-import songlistState, { type TagInfo, type ListDetailInfo, type ListInfo, type SortInfo, type ListInfoItem } from '@/store/songlist/state'
+import songlistState, { type TagInfo, type ListDetailInfo, type ListInfo } from '@/store/songlist/state'
 import songlistActions from '@/store/songlist/action'
 import { deduplicationList, toNewMusicInfo } from '@/utils'
 import musicSdk from '@/utils/musicSdk'
@@ -13,22 +13,12 @@ const LIST_LOAD_LIMIT = 30
 
 
 /**
- * 设置要打开的歌单详情信息
- * @param source
- * @returns
- */
-export const setSelectListInfo = (info: ListInfoItem) => {
-  songlistActions.clearListDetail()
-  songlistActions.setSelectListInfo(info)
-}
-
-/**
  * 获取排序列表
  * @param source
  * @returns
  */
 export const getSortList = (source: LX.OnlineSource) => {
-  return songlistState.sortList[source] as SortInfo[]
+  return songlistState.sortList[source]!
 }
 
 /**
